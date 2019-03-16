@@ -18,14 +18,21 @@ namespace NuGet.VerifyMicrosoftPackage
     public class Program
     {
         private static ConsoleColor _originalColor;
+        private static TextWriter _console;
 
         public static int Main(string[] args)
         {
+            return MainAsync(args, Console.Out).GetAwaiter().GetResult();
+        }
+
+        public static async Task<int> MainAsync(string[] args, TextWriter console)
+        {
             _originalColor = Console.ForegroundColor;
+            _console = console;
 
             try
             {
-                return MainAsync(args.ToList()).GetAwaiter().GetResult();
+                return await RunAsync(args.ToList(), console);
             }
             catch (Exception ex)
             {
@@ -33,30 +40,30 @@ namespace NuGet.VerifyMicrosoftPackage
                     ConsoleColor.Red,
                     () =>
                     {
-                        Console.WriteLine("An exception occurred.");
-                        Console.WriteLine(ex);
+                        _console.WriteLine("An exception occurred.");
+                        _console.WriteLine(ex);
                     });
-                return 1;
+                return -2;
             }
         }
 
-        private static async Task<int> MainAsync(List<string> args)
+        private static async Task<int> RunAsync(List<string> args, TextWriter console)
         {
             // Evaluate command line options.
             if (args.Count < 1
-                || (new[] { "-h", "--help", "-help", "/?", "/h", "/help" }).Any(x => HasOption(args, x)))
+                || (new[] { "-h", "--h", "-help", "--help", "/?", "/h", "/help" }).Any(x => HasOption(args, x)))
             {
-                Console.WriteLine("There must be at least one command line argument.");
-                Console.WriteLine();
-                Console.WriteLine("Each argument is expected to be a file path to a package (.nupkg).");
-                Console.WriteLine();
-                Console.WriteLine("Relative paths and wildcards in the file name are supported.");
-                Console.WriteLine();
-                Console.WriteLine("Globbing and wildcards in the directory are not supported.");
-                Console.WriteLine();
-                Console.WriteLine("Use --recursive to apply a wildcard recursively.");
+                _console.WriteLine("There must be at least one command line argument.");
+                _console.WriteLine();
+                _console.WriteLine("Each argument is expected to be a file path to a package (.nupkg).");
+                _console.WriteLine();
+                _console.WriteLine("Relative paths and wildcards in the file name are supported.");
+                _console.WriteLine();
+                _console.WriteLine("Globbing and wildcards in the directory are not supported.");
+                _console.WriteLine();
+                _console.WriteLine("Use --recursive to apply a wildcard recursively.");
 
-                return 1;
+                return -1;
             }
 
             var recursive = HasOption(args, "--recursive");
@@ -91,9 +98,9 @@ namespace NuGet.VerifyMicrosoftPackage
                     continue;
                 }
 
-                Console.WriteLine("Using the following package path argument:");
-                Console.WriteLine(arg);
-                Console.WriteLine();
+                _console.WriteLine("Using the following package path argument:");
+                _console.WriteLine(arg);
+                _console.WriteLine();
 
                 var directory = Path.GetDirectoryName(arg);
                 if (string.IsNullOrEmpty(directory))
@@ -130,14 +137,14 @@ namespace NuGet.VerifyMicrosoftPackage
             }
 
             // Summarize the results.
-            Console.WriteLine($"Valid package count: {validCount}");
-            Console.WriteLine($"Invalid package count: {invalidCount}");
+            _console.WriteLine($"Valid package count: {validCount}");
+            _console.WriteLine($"Invalid package count: {invalidCount}");
 
             if (invalidCount > 0)
             {
-                Console.WriteLine();
-                Console.WriteLine("The metadata validation uses the following ruleset:");
-                Console.WriteLine(JsonConvert.SerializeObject(
+                _console.WriteLine();
+                _console.WriteLine("The metadata validation uses the following ruleset:");
+                _console.WriteLine(JsonConvert.SerializeObject(
                     state,
                     new JsonSerializerSettings
                     {
@@ -160,9 +167,9 @@ namespace NuGet.VerifyMicrosoftPackage
                     ConsoleColor.Red,
                     () =>
                     {
-                        Console.WriteLine("INVALID.");
-                        Console.WriteLine(packagePath);
-                        Console.WriteLine("The path does not exist.");
+                        _console.WriteLine("INVALID.");
+                        _console.WriteLine(packagePath);
+                        _console.WriteLine("The path does not exist.");
                     });
                 return false;
             }
@@ -173,9 +180,9 @@ namespace NuGet.VerifyMicrosoftPackage
                     ConsoleColor.Red,
                     () =>
                     {
-                        Console.WriteLine("INVALID.");
-                        Console.WriteLine(packagePath);
-                        Console.WriteLine("The path is a directory, not a file.");
+                        _console.WriteLine("INVALID.");
+                        _console.WriteLine(packagePath);
+                        _console.WriteLine("The path is a directory, not a file.");
                     });
                 return false;
             }
@@ -217,9 +224,9 @@ namespace NuGet.VerifyMicrosoftPackage
                     ConsoleColor.Green,
                     () =>
                     {
-                        Console.WriteLine("VALID.");
-                        Console.WriteLine(packagePath);
-                        Console.WriteLine($"The package {package.Id} {package.Version} is compliant.");
+                        _console.WriteLine("VALID.");
+                        _console.WriteLine(packagePath);
+                        _console.WriteLine($"The package {package.Id} {package.Version} is compliant.");
                     });
                 return true;
             }
@@ -230,13 +237,13 @@ namespace NuGet.VerifyMicrosoftPackage
                     () =>
                     {
                         var single = complianceFailures.Count == 1;
-                        Console.WriteLine("INVALID.");
-                        Console.WriteLine(packagePath);
-                        Console.WriteLine($"The package {package.Id} {package.Version} is not compliant.");
-                        Console.WriteLine($"There {(single ? "is" : "are")} {complianceFailures.Count} problem{(single ? string.Empty : "s")}.");
+                        _console.WriteLine("INVALID.");
+                        _console.WriteLine(packagePath);
+                        _console.WriteLine($"The package {package.Id} {package.Version} is not compliant.");
+                        _console.WriteLine($"There {(single ? "is" : "are")} {complianceFailures.Count} problem{(single ? string.Empty : "s")}.");
                         foreach (var failure in complianceFailures)
                         {
-                            Console.WriteLine($"  - {failure}");
+                            _console.WriteLine($"  - {failure}");
                         }
                     });
                 return false;
@@ -248,7 +255,7 @@ namespace NuGet.VerifyMicrosoftPackage
             Console.ForegroundColor = color;
             output();
             Console.ForegroundColor = _originalColor;
-            Console.WriteLine();
+            _console.WriteLine();
         }
 
         private static bool HasOption(List<string> args, string option)
