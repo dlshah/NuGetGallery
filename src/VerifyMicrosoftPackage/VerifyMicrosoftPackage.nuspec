@@ -12,19 +12,6 @@
     <repository type="git" url="https://github.com/NuGet/NuGetGallery" />
   </metadata>
   <files>
-    <file src="bin\$configuration$\EntityFramework.dll" target="tools" />
-    <file src="bin\$configuration$\Newtonsoft.Json.dll" target="tools" />
-    <file src="bin\$configuration$\NuGet.Common.dll" target="tools" />
-    <file src="bin\$configuration$\NuGet.Frameworks.dll" target="tools" />
-    <file src="bin\$configuration$\NuGet.Packaging.Core.dll" target="tools" />
-    <file src="bin\$configuration$\NuGet.Packaging.dll" target="tools" />
-    <file src="bin\$configuration$\NuGet.Services.Entities.dll" target="tools" />
-    <file src="bin\$configuration$\NuGet.VerifyMicrosoftPackage.exe" target="tools" />
-    <file src="bin\$configuration$\NuGet.VerifyMicrosoftPackage.exe.config" target="tools" />
-    <file src="bin\$configuration$\NuGet.Versioning.dll" target="tools" />
-    <file src="bin\$configuration$\NuGetGallery.Core.dll" target="tools" />
-    <file src="bin\$configuration$\NuGetGallery.dll" target="tools" />
-    <file src="bin\$configuration$\System.IO.Compression.dll" target="tools" />
-    <file src="bin\$configuration$\System.Net.Http.dll" target="tools" />
+    <file src="bin\$configuration$\**\*" target="tools" />
   </files>
 </package>
