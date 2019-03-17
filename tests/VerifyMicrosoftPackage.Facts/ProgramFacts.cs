@@ -6,10 +6,12 @@ using System.Collections.Concurrent;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 using NuGet.Frameworks;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
+using NuGetGallery.Security;
 using NuGetGallery.Utilities;
 using Xunit;
 using Xunit.Abstractions;
@@ -125,6 +127,80 @@ namespace NuGet.VerifyMicrosoftPackage.Facts
 
             Assert.Equal(0, exitCode);
             AssertCounts(valid: 2, invalid: 0);
+        }
+
+        [Fact]
+        public void ValidatesASinglePackage()
+        {
+            var args = new[]
+            {
+                Path.Combine(_directory, "inner", "testA.nupkg"),
+            };
+            CreatePackage(Path.Combine("inner", "testA.nupkg"), authors: "Not Microsoft");
+
+            var exitCode = Program.Run(args, _console);
+
+            Assert.Equal(1, exitCode);
+            AssertCounts(valid: 0, invalid: 1);
+        }
+
+        [Fact]
+        public void UsesCustomRuleSetForValidPackage()
+        {
+            var state = new RequirePackageMetadataState
+            {
+                AllowedCopyrightNotices = new[] { "My copyright" },
+                AllowedAuthors = new[] { "My authors" },
+                IsLicenseUrlRequired = false,
+                IsProjectUrlRequired = false,
+            };
+            var ruleSetPath = Path.Combine(_directory, "rules.json");
+            File.WriteAllText(ruleSetPath, JsonConvert.SerializeObject(state));
+            var args = new[]
+            {
+                Path.Combine(_directory, "inner", "testA.nupkg"),
+                "--rule-set",
+                ruleSetPath
+            };
+
+            CreatePackage(
+                Path.Combine("inner", "testA.nupkg"),
+                copyright: state.AllowedCopyrightNotices[0],
+                authors: state.AllowedAuthors[0],
+                licenseUrl: null,
+                projectUrl: null);
+
+            var exitCode = Program.Run(args, _console);
+
+            Assert.Equal(0, exitCode);
+            AssertCounts(valid: 1, invalid: 0);
+        }
+
+        [Fact]
+        public void UsesCustomRuleSetForInvalidPackage()
+        {
+            var state = new RequirePackageMetadataState
+            {
+                AllowedCopyrightNotices = new[] { "My copyright" },
+                AllowedAuthors = new[] { "My authors" },
+            };
+            var ruleSetPath = Path.Combine(_directory, "rules.json");
+            File.WriteAllText(ruleSetPath, JsonConvert.SerializeObject(state));
+            var args = new[]
+            {
+                Path.Combine(_directory, "inner", "testA.nupkg"),
+                "--rule-set",
+                ruleSetPath
+            };
+
+            CreatePackage(Path.Combine("inner", "testA.nupkg"));
+
+            var exitCode = Program.Run(args, _console);
+
+            Assert.Equal(1, exitCode);
+            AssertCounts(valid: 0, invalid: 1);
+            Assert.Contains("  - The package metadata defines 'Microsoft' as one of the authors which is not allowed by policy.", _console.Messages);
+            Assert.Contains("  - The package metadata contains a non-compliant copyright element.", _console.Messages);
         }
 
         [Fact]

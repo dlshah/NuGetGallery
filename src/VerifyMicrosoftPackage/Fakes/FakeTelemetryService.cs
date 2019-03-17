@@ -9,7 +9,7 @@ using NuGet.Services.Entities;
 using NuGet.Versioning;
 using NuGetGallery;
 
-namespace NuGet.VerifyMicrosoftPackage
+namespace NuGet.VerifyMicrosoftPackage.Fakes
 {
     public class FakeTelemetryService : ITelemetryService
     {

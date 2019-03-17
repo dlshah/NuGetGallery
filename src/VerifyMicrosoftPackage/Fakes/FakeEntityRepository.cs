@@ -6,7 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using NuGetGallery;
 
-namespace NuGet.VerifyMicrosoftPackage
+namespace NuGet.VerifyMicrosoftPackage.Fakes
 {
     public class FakeEntityRepository<T> : IEntityRepository<T> where T : class, new()
     {

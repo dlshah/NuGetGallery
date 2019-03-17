@@ -8,7 +8,7 @@ using System.Web;
 using NuGet.Services.Entities;
 using NuGetGallery.Security;
 
-namespace NuGet.VerifyMicrosoftPackage
+namespace NuGet.VerifyMicrosoftPackage.Fakes
 {
     public class FakeSecurityPolicyService : ISecurityPolicyService
     {

@@ -5,7 +5,7 @@ using System;
 using System.Threading.Tasks;
 using NuGetGallery.Auditing;
 
-namespace NuGet.VerifyMicrosoftPackage
+namespace NuGet.VerifyMicrosoftPackage.Fakes
 {
     public class FakeAuditingService : IAuditingService
     {
