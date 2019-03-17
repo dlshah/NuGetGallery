@@ -91,6 +91,19 @@ namespace NuGet.VerifyMicrosoftPackage.Facts
         }
 
         [Fact]
+        public async Task RecursiveContinuesAfterFailures()
+        {
+            var args = new[] { Path.Combine(_directory, "*.nupkg"), "--recursive" };
+            CreatePackage(Path.Combine("inner", "testA.nupkg"));
+            CreatePackage(Path.Combine("inner", "testB.nupkg"), authors: "Not Microsoft");
+
+            var exitCode = await Program.MainAsync(args, _console);
+
+            Assert.Equal(1, exitCode);
+            AssertCounts(valid: 1, invalid: 1);
+        }
+
+        [Fact]
         public async Task ChecksMultiplePackages()
         {
             var args = new[]

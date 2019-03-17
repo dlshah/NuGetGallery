@@ -32,7 +32,7 @@ namespace NuGet.VerifyMicrosoftPackage
 
             try
             {
-                return await RunAsync(args.ToList(), console);
+                return await RunAsync(args.ToList());
             }
             catch (Exception ex)
             {
@@ -47,7 +47,7 @@ namespace NuGet.VerifyMicrosoftPackage
             }
         }
 
-        private static async Task<int> RunAsync(List<string> args, TextWriter console)
+        private static async Task<int> RunAsync(List<string> args)
         {
             // Evaluate command line options.
             if (args.Count < 1
