@@ -28,83 +28,90 @@ namespace NuGet.VerifyMicrosoftPackage.Facts
         }
 
         [Fact]
-        public async Task ReturnsNegativeOneForNoArguments()
+        public void ReturnsNegativeOneForNoArguments()
         {
             var args = new string[0];
 
-            var exitCode = await Program.MainAsync(args, _console);
+            var exitCode = Program.Run(args, _console);
 
             Assert.Equal(-1, exitCode);
         }
 
         [Theory]
+        [InlineData("-?")]
         [InlineData("-h")]
-        [InlineData("--h")]
-        [InlineData("-help")]
         [InlineData("--help")]
-        [InlineData("/?")]
-        [InlineData("/h")]
-        [InlineData("/help")]
-        public async Task ReturnsNegativeOneForHelp(string argument)
+        public void ReturnsNegativeOneForHelp(string argument)
         {
             var args = new[] { argument };
 
-            var exitCode = await Program.MainAsync(args, _console);
+            var exitCode = Program.Run(args, _console);
 
             Assert.Equal(-1, exitCode);
         }
 
         [Fact]
-        public async Task ReturnsNegativeTwoForException()
+        public void ReturnsNegativeTwoForUnexpectedOption()
+        {
+            var args = new[] { "--fake" };
+
+            var exitCode = Program.Run(args, _console);
+
+            Assert.Equal(-1, exitCode);
+            Assert.Contains("Unrecognized option '--fake'", _console.Messages);
+        }
+
+        [Fact]
+        public void ReturnsNegativeTwoForException()
         {
             File.WriteAllBytes(Path.Combine(_directory, "bad.nupkg"), new byte[0]);
             var args = new[] { Path.Combine(_directory, "*.nupkg") };
 
-            var exitCode = await Program.MainAsync(args, _console);
+            var exitCode = Program.Run(args, _console);
 
             Assert.Equal(-2, exitCode);
             Assert.Contains("An exception occurred.", _console.Messages);
         }
 
         [Fact]
-        public async Task ReturnsZeroForNoPackages()
+        public void ReturnsZeroForNoPackages()
         {
             var args = new[] { Path.Combine(_directory, "*.nupkg") };
 
-            var exitCode = await Program.MainAsync(args, _console);
+            var exitCode = Program.Run(args, _console);
 
             Assert.Equal(0, exitCode);
             AssertCounts(valid: 0, invalid: 0);
         }
 
         [Fact]
-        public async Task RecursiveFindsPackagesInChildDirectories()
+        public void RecursiveFindsPackagesInChildDirectories()
         {
             var args = new[] { Path.Combine(_directory, "*.nupkg"), "--recursive" };
             CreatePackage(Path.Combine("inner", "testA.nupkg"));
             CreatePackage(Path.Combine("inner", "testB.nupkg"));
 
-            var exitCode = await Program.MainAsync(args, _console);
+            var exitCode = Program.Run(args, _console);
 
             Assert.Equal(0, exitCode);
             AssertCounts(valid: 2, invalid: 0);
         }
 
         [Fact]
-        public async Task RecursiveContinuesAfterFailures()
+        public void RecursiveContinuesAfterFailures()
         {
             var args = new[] { Path.Combine(_directory, "*.nupkg"), "--recursive" };
             CreatePackage(Path.Combine("inner", "testA.nupkg"));
             CreatePackage(Path.Combine("inner", "testB.nupkg"), authors: "Not Microsoft");
 
-            var exitCode = await Program.MainAsync(args, _console);
+            var exitCode = Program.Run(args, _console);
 
             Assert.Equal(1, exitCode);
             AssertCounts(valid: 1, invalid: 1);
         }
 
         [Fact]
-        public async Task ChecksMultiplePackages()
+        public void ChecksMultiplePackages()
         {
             var args = new[]
             {
@@ -114,14 +121,14 @@ namespace NuGet.VerifyMicrosoftPackage.Facts
             CreatePackage(Path.Combine("inner", "testA.nupkg"));
             CreatePackage(Path.Combine("inner", "testB.nupkg"));
 
-            var exitCode = await Program.MainAsync(args, _console);
+            var exitCode = Program.Run(args, _console);
 
             Assert.Equal(0, exitCode);
             AssertCounts(valid: 2, invalid: 0);
         }
 
         [Fact]
-        public async Task ContinuesAfterFailure()
+        public void ContinuesAfterFailure()
         {
             var args = new[]
             {
@@ -131,14 +138,14 @@ namespace NuGet.VerifyMicrosoftPackage.Facts
             CreatePackage(Path.Combine("inner", "testA.nupkg"), authors:"Not Microsoft");
             CreatePackage(Path.Combine("inner", "testB.nupkg"));
 
-            var exitCode = await Program.MainAsync(args, _console);
+            var exitCode = Program.Run(args, _console);
 
             Assert.Equal(1, exitCode);
             AssertCounts(valid: 1, invalid: 1);
         }
 
         [Fact]
-        public async Task ExitCodeIsNumberOfFailures()
+        public void ExitCodeIsNumberOfFailures()
         {
             var args = new[]
             {
@@ -152,7 +159,7 @@ namespace NuGet.VerifyMicrosoftPackage.Facts
             CreatePackage(Path.Combine("inner", "testC.nupkg"), authors: "Not Microsoft");
             CreatePackage(Path.Combine("inner", "testD.nupkg"), authors: "Not Microsoft");
 
-            var exitCode = await Program.MainAsync(args, _console);
+            var exitCode = Program.Run(args, _console);
 
             Assert.Equal(3, exitCode);
             AssertCounts(valid: 1, invalid: 3);

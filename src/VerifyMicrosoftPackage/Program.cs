@@ -4,8 +4,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.CommandLineUtils;
 using Newtonsoft.Json;
 using NuGet.Packaging;
 using NuGet.Services.Entities;
@@ -22,17 +22,17 @@ namespace NuGet.VerifyMicrosoftPackage
 
         public static int Main(string[] args)
         {
-            return MainAsync(args, Console.Out).GetAwaiter().GetResult();
+            return Run(args, Console.Out);
         }
 
-        public static async Task<int> MainAsync(string[] args, TextWriter console)
+        public static int Run(string[] args, TextWriter console)
         {
             _originalColor = Console.ForegroundColor;
             _console = console;
 
             try
             {
-                return await RunAsync(args.ToList());
+                return Run(args);
             }
             catch (Exception ex)
             {
@@ -47,113 +47,148 @@ namespace NuGet.VerifyMicrosoftPackage
             }
         }
 
-        private static async Task<int> RunAsync(List<string> args)
+        private static int Run(string[] args)
         {
-            // Evaluate command line options.
-            if (args.Count < 1
-                || (new[] { "-h", "--h", "-help", "--help", "/?", "/h", "/help" }).Any(x => HasOption(args, x)))
+            var app = new Application();
+
+            app.Out = _console;
+            app.Error = _console;
+
+            app.Name = typeof(Program).Assembly.GetName().Name;
+
+            app.Description =
+                "This tool determines if a .nupkg meets the metadata requirements for Microsoft packages on" +
+                Environment.NewLine +
+                "nuget.org. Relative paths and wildcards in the file name are supported. Globbing and" +
+                Environment.NewLine +
+                "wildcards in the directory are not supported.";
+
+            var helpOption = app.Option(
+                "-? | -h | --help",
+                "Show help information.",
+                CommandOptionType.NoValue);
+
+            var recursiveOption = app.Option(
+                "--recursive",
+                "Evaluate wildcards recursively into child directories.",
+                CommandOptionType.NoValue);
+
+            var pathsArgument = app.Argument(
+                "PATHS",
+                "One or more file paths to a package (.nupkg).",
+                multipleValues: true);
+
+            app.OnExecute(async () =>
             {
-                _console.WriteLine("There must be at least one command line argument.");
-                _console.WriteLine();
-                _console.WriteLine("Each argument is expected to be a file path to a package (.nupkg).");
-                _console.WriteLine();
-                _console.WriteLine("Relative paths and wildcards in the file name are supported.");
-                _console.WriteLine();
-                _console.WriteLine("Globbing and wildcards in the directory are not supported.");
-                _console.WriteLine();
-                _console.WriteLine("Use --recursive to apply a wildcard recursively.");
-
-                return -1;
-            }
-
-            var recursive = HasOption(args, "--recursive");
-
-            // Initialize dependencies for evaluating the metadata policy.
-            var packageRegistrationRepository = new FakeEntityRepository<PackageRegistration>();
-            var packageRepository = new FakeEntityRepository<Package>();
-            var certificateRepository = new FakeEntityRepository<Certificate>();
-            var auditingService = new FakeAuditingService();
-            var telemetryService = new FakeTelemetryService();
-            var securityPolicyService = new FakeSecurityPolicyService();
-
-            var packageService = new PackageService(
-                packageRegistrationRepository,
-                packageRepository,
-                certificateRepository,
-                auditingService,
-                telemetryService,
-                securityPolicyService);
-
-            var subscription = new MicrosoftTeamSubscription();
-            var policies = subscription.Policies;
-            var state = RequirePackageMetadataComplianceUtility.DeserializeState(policies);
-
-            // Iterate over each argument.
-            var validCount = 0;
-            var invalidCount = 0;
-            foreach (var arg in args)
-            {
-                if (string.IsNullOrWhiteSpace(arg))
+                if (helpOption.HasValue() || pathsArgument.Values.Count == 0)
                 {
-                    continue;
+                    app.ShowHelp();
+                    return -1;
                 }
 
-                _console.WriteLine("Using the following package path argument:");
-                _console.WriteLine(arg);
-                _console.WriteLine();
+                // Initialize dependencies for evaluating the metadata policy.
+                var packageRegistrationRepository = new FakeEntityRepository<PackageRegistration>();
+                var packageRepository = new FakeEntityRepository<Package>();
+                var certificateRepository = new FakeEntityRepository<Certificate>();
+                var auditingService = new FakeAuditingService();
+                var telemetryService = new FakeTelemetryService();
+                var securityPolicyService = new FakeSecurityPolicyService();
 
-                var directory = Path.GetDirectoryName(arg);
-                if (string.IsNullOrEmpty(directory))
-                {
-                    directory = ".";
-                }
+                var packageService = new PackageService(
+                    packageRegistrationRepository,
+                    packageRepository,
+                    certificateRepository,
+                    auditingService,
+                    telemetryService,
+                    securityPolicyService);
 
-                var fileName = Path.GetFileName(arg);
+                var subscription = new MicrosoftTeamSubscription();
+                var policies = subscription.Policies;
+                var state = RequirePackageMetadataComplianceUtility.DeserializeState(policies);
 
-                IEnumerable<string> paths;
-                if (fileName.Contains("*"))
+                // Iterate over each argument.
+                var validCount = 0;
+                var invalidCount = 0;
+                foreach (var path in pathsArgument.Values)
                 {
-                    paths = Directory.EnumerateFiles(
-                        directory,
-                        fileName,
-                        recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
-                }
-                else
-                {
-                    paths = new[] { arg };
-                }
-
-                foreach (var packagePath in paths)
-                {
-                    if (await IsValidAsync(packageService, state, packagePath))
+                    if (string.IsNullOrWhiteSpace(path))
                     {
-                        validCount++;
+                        continue;
+                    }
+
+                    _console.WriteLine("Using the following package path argument:");
+                    _console.WriteLine(path);
+                    _console.WriteLine();
+
+                    var directory = Path.GetDirectoryName(path);
+                    if (string.IsNullOrEmpty(directory))
+                    {
+                        directory = ".";
+                    }
+
+                    var fileName = Path.GetFileName(path);
+
+                    IEnumerable<string> paths;
+                    if (fileName.Contains("*"))
+                    {
+                        paths = Directory.EnumerateFiles(
+                            directory,
+                            fileName,
+                            recursiveOption.HasValue() ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
                     }
                     else
                     {
-                        invalidCount++;
+                        paths = new[] { path };
+                    }
+
+                    foreach (var packagePath in paths)
+                    {
+                        if (await IsValidAsync(packageService, state, packagePath))
+                        {
+                            validCount++;
+                        }
+                        else
+                        {
+                            invalidCount++;
+                        }
                     }
                 }
-            }
 
-            // Summarize the results.
-            _console.WriteLine($"Valid package count: {validCount}");
-            _console.WriteLine($"Invalid package count: {invalidCount}");
+                // Summarize the results.
+                _console.WriteLine($"Valid package count: {validCount}");
+                _console.WriteLine($"Invalid package count: {invalidCount}");
 
-            if (invalidCount > 0)
+                if (invalidCount > 0)
+                {
+                    _console.WriteLine();
+                    _console.WriteLine("The metadata validation uses the following ruleset:");
+                    _console.WriteLine(JsonConvert.SerializeObject(
+                        state,
+                        new JsonSerializerSettings
+                        {
+                            ContractResolver = new NoJsonPropertyContract(),
+                            Formatting = Formatting.Indented,
+                        }));
+                }
+
+                return invalidCount;
+            });
+
+            try
             {
-                _console.WriteLine();
-                _console.WriteLine("The metadata validation uses the following ruleset:");
-                _console.WriteLine(JsonConvert.SerializeObject(
-                    state,
-                    new JsonSerializerSettings
-                    {
-                        ContractResolver = new NoJsonPropertyContract(),
-                        Formatting = Formatting.Indented,
-                    }));
+                return app.Execute(args);
             }
-
-            return invalidCount;
+            catch (CommandParsingException ex)
+            {
+                OutputColor(
+                    ConsoleColor.Red,
+                    () =>
+                    {
+                        _console.WriteLine(ex.Message);
+                    });
+                app.ShowHelp();
+                return -1;
+            }
         }
 
         private static async Task<bool> IsValidAsync(
@@ -256,12 +291,6 @@ namespace NuGet.VerifyMicrosoftPackage
             output();
             Console.ForegroundColor = _originalColor;
             _console.WriteLine();
-        }
-
-        private static bool HasOption(List<string> args, string option)
-        {
-            var count = args.RemoveAll(x => string.Equals(x, option, StringComparison.OrdinalIgnoreCase));
-            return count > 0;
         }
     }
 }
