@@ -130,7 +130,7 @@ namespace NuGet.VerifyMicrosoftPackage.Facts
         }
 
         [Fact]
-        public void ValidatesASinglePackage()
+        public void ValidatesASingleInvalidPackage()
         {
             var args = new[]
             {
@@ -142,6 +142,21 @@ namespace NuGet.VerifyMicrosoftPackage.Facts
 
             Assert.Equal(1, exitCode);
             AssertCounts(valid: 0, invalid: 1);
+        }
+
+        [Fact]
+        public void ValidatesASingleValidPackage()
+        {
+            var args = new[]
+            {
+                Path.Combine(_directory, "inner", "testA.nupkg"),
+            };
+            CreatePackage(Path.Combine("inner", "testA.nupkg"));
+
+            var exitCode = Program.Run(args, _console);
+
+            Assert.Equal(0, exitCode);
+            AssertCounts(valid: 1, invalid: 0);
         }
 
         [Fact]

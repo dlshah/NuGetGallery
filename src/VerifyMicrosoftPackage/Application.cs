@@ -328,7 +328,7 @@ namespace NuGet.VerifyMicrosoftPackage
             var properties = typeof(RequirePackageMetadataState)
                 .GetProperties(BindingFlags.Instance | BindingFlags.Public)
                 .OrderBy(x => x.Name);
-            var firstHeading = ".NET Name";
+            var firstHeading = "Readable .NET Name";
             var maxPropertyName = Math.Max(properties.Max(x => x.Name.Length), firstHeading.Length);
             sb.AppendLine($"{firstHeading.PadRight(maxPropertyName)} | JSON Name");
             sb.AppendLine($"{new string('-', maxPropertyName)} | ----------");
